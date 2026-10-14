@@ -5,6 +5,7 @@ Kleines Desktop-Tool für Windows und Linux: Eine Auswahl an Buttons, jeder Butt
 ## Funktionen
 - Buttons öffnen Excel-Dateien mit dem Standardprogramm (Windows: Excel, Linux: `xdg-open`)
 - Unterstützt lokale Pfade, Netzpfade (`\\Server\Freigabe\datei.xlsx`) und Web-Links
+- Einstellungen mit drei Reitern: **Einträge**, **Allgemein** (Ansicht hell/dunkel/System, maximale Anzahl an Einträgen, Zurücksetzen) und **Info**
 - Portabel: Einstellungen liegen in `config.json` neben dem Programm
 - Keine Abhängigkeiten außer Python 3 (tkinter)
 
@@ -19,6 +20,7 @@ Unter **Releases** liegen `DocuBuilder.exe` (Windows) und `DocuBuilder` (Linux).
 
 ## Selbst bauen
 - Windows: `build_windows.bat` doppelklicken, Ergebnis in `dist\`
+- Windows signieren: `sign_windows.bat <Fingerprint>` (siehe CODE_SIGNING.md)
 - Linux: `./build_linux.sh`, Ergebnis in `dist/`
 
 ## Automatischer Build über GitHub
@@ -26,7 +28,7 @@ Der Workflow `.github/workflows/build.yml` baut bei jedem Push eines Tags `v*` (
 Zum manuellen Test: Reiter **Actions** → **Build** → **Run workflow**.
 
 ## Code Signing
-Free code signing provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org). Details siehe [CODE_SIGNING.md](CODE_SIGNING.md).
+Die Windows-Version wird mit einem eigenen Code-Signing-Zertifikat signiert (`sign_windows.bat`). Ablauf und Prüfung siehe [CODE_SIGNING.md](CODE_SIGNING.md).
 
 ## Datenschutz
 Dieses Programm überträgt keine Daten an andere Systeme im Netzwerk, außer der Nutzer hat dies ausdrücklich veranlasst.
