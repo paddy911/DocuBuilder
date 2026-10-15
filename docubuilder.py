@@ -20,7 +20,7 @@ from tkinter import font as tkfont
 
 APP_NAME = "DocuBuilder"
 # Version und Kanal werden von tools/version.py gepflegt (Nightly-Builds setzen sie nur beim Bauen).
-APP_VERSION = "1.0.0.0"
+APP_VERSION = "1.0.1.0"
 APP_CHANNEL = "stable"
 APP_TITLE = APP_NAME + (" Nightly" if APP_CHANNEL == "nightly" else "")
 
