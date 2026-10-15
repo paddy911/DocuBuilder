@@ -57,7 +57,19 @@ python3 docubuilder.py       # Linux (benötigt python3-tk)
 ## Fertige Programme herunterladen
 Unter **Releases** liegen `DocuBuilder.exe` (Windows) und `DocuBuilder` (Linux).
 
+## Installieren (Windows)
+`DocuBuilder-Setup-<Version>.exe` aus den **Releases** starten. Das Installationsprogramm
+- installiert nach `C:\Program Files\DocuBuilder` (Administratorrechte nötig),
+- legt einen Eintrag im Startmenü an (Desktop-Verknüpfung optional),
+- richtet den geschützten Einstellungsordner `C:\ProgramData\DocuBuilder` ein; ein Start „als Administrator“ ist danach nicht mehr nötig,
+- installiert neuere Versionen einfach über die alte; Einträge und Benutzer bleiben erhalten.
+
+**Deinstallieren:** Windows-Einstellungen → Apps → Installierte Apps → DocuBuilder → Deinstallieren. Dabei wird gefragt, ob auch die Einstellungen (Einträge, Benutzer, Passwörter) gelöscht werden sollen.
+
+Alternativ gibt es weiterhin die einzelne `DocuBuilder.exe` ohne Installation.
+
 ## Selbst bauen
+- Windows-Installationsprogramm: `build_installer.bat` doppelklicken (benötigt Inno Setup 6: `winget install JRSoftware.InnoSetup`), Ergebnis `dist\DocuBuilder-Setup-<Version>.exe`
 - Windows: `build_windows.bat` doppelklicken, Ergebnis in `dist\`
 - Windows signieren: `sign_windows.bat <Fingerprint>` (siehe CODE_SIGNING.md)
 - Linux: `./build_linux.sh`, Ergebnis in `dist/`

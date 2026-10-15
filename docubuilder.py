@@ -1343,4 +1343,8 @@ class App(tk.Tk):
 
 
 if __name__ == "__main__":
-    App().mainloop()
+    if "--setup-machine" in sys.argv[1:]:
+        # vom Installationsprogramm (mit Adminrechten) aufgerufen: gemeinsamen Ordner einrichten
+        prepare_machine_dir(MACHINE_DIR)
+    else:
+        App().mainloop()
