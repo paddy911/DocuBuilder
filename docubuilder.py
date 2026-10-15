@@ -10,11 +10,12 @@ import json
 import os
 import platform
 import re
+import shutil
 import subprocess
 import sys
 import webbrowser
 import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 from tkinter import font as tkfont
 
 APP_NAME = "DocuBuilder"
@@ -364,6 +365,78 @@ def save_config(settings, items):
     return False
 
 
+def _remove(path):
+    """Datei oder Ordner löschen (Schreibschutz vorher aufheben). True, wenn danach weg."""
+    if not os.path.exists(path):
+        return True
+    try:
+        if os.path.isdir(path):
+            for root, _, files in os.walk(path):
+                for f in files:
+                    unprotect_file(os.path.join(root, f))
+            shutil.rmtree(path)
+        else:
+            unprotect_file(path)
+            os.remove(path)
+    except OSError:
+        pass
+    return not os.path.exists(path)
+
+
+def _own_dir(d):
+    """Nur eigene DocuBuilder-Ordner ganz löschen, nie z. B. den Programmordner."""
+    return os.path.basename(os.path.normpath(d)).lower() == "docubuilder" and \
+        os.path.normcase(os.path.abspath(d)) != os.path.normcase(app_dir())
+
+
+def _run_elevated(params):
+    """cmd.exe mit Administratorrechten (UAC-Abfrage) ausführen und warten. False bei Ablehnung."""
+    import ctypes
+    from ctypes import wintypes
+
+    class ShellExecuteInfo(ctypes.Structure):
+        _fields_ = [("cbSize", wintypes.DWORD), ("fMask", ctypes.c_ulong),
+                    ("hwnd", wintypes.HWND), ("lpVerb", wintypes.LPCWSTR),
+                    ("lpFile", wintypes.LPCWSTR), ("lpParameters", wintypes.LPCWSTR),
+                    ("lpDirectory", wintypes.LPCWSTR), ("nShow", ctypes.c_int),
+                    ("hInstApp", wintypes.HINSTANCE), ("lpIDList", ctypes.c_void_p),
+                    ("lpClass", wintypes.LPCWSTR), ("hkeyClass", wintypes.HKEY),
+                    ("dwHotKey", wintypes.DWORD), ("hIcon", wintypes.HANDLE),
+                    ("hProcess", wintypes.HANDLE)]
+
+    info = ShellExecuteInfo(cbSize=ctypes.sizeof(ShellExecuteInfo), fMask=0x40,  # NOCLOSEPROCESS
+                            lpVerb="runas", lpFile="cmd.exe", lpParameters=params, nShow=0)
+    if not ctypes.windll.shell32.ShellExecuteExW(ctypes.byref(info)):
+        return False
+    if info.hProcess:
+        ctypes.windll.kernel32.WaitForSingleObject(info.hProcess, 60_000)
+        ctypes.windll.kernel32.CloseHandle(info.hProcess)
+    return True
+
+
+def remove_all_data():
+    """Löscht die gemeinsame Konfiguration (Einträge, Benutzer) und die eigene Ansicht.
+    Liefert None bei Erfolg, sonst einen Fehlertext."""
+    user = os.path.dirname(PREFS)
+    for p in [user] if _own_dir(user) else [PREFS, PREFS + ".tmp"] + LEGACY_FILES:
+        _remove(p)
+    target = MACHINE_DIR if _own_dir(MACHINE_DIR) else CONFIG
+    if _remove(target):
+        return None
+    if WIN:
+        if os.path.isdir(target):
+            cmd = f'/c attrib -R -H "{target}\\*" & rmdir /s /q "{target}"'
+        else:
+            cmd = f'/c attrib -R -H "{target}" & del /f /q "{target}"'
+        if _run_elevated(cmd) and not os.path.exists(target):
+            return None
+        if os.path.exists(CONFIG):
+            protect_file(CONFIG, shared=True)
+        return ("Die gemeinsame Konfiguration konnte nicht gelöscht werden, weil keine "
+                f"Administratorrechte erteilt wurden:\n{target}")
+    return f"Bitte mit Administratorrechten löschen:\nsudo rm -rf {target}"
+
+
 def save_prefs(settings):
     try:
         write_store(PREFS, {"theme": settings["theme"]})
@@ -510,7 +583,7 @@ class Settings(tk.Toplevel):
         super().__init__(app)
         self.app = app
         self.title("Einstellungen")
-        self.geometry("760x540")
+        self.geometry("760x620")
         self.minsize(620, 440)
         self.configure(bg=app.pal["bg"])
         self.transient(app)
@@ -722,6 +795,39 @@ class Settings(tk.Toplevel):
                                                                  padx=(0, 12), pady=2)
             ttk.Label(f, text=v, wraplength=480, justify="left").grid(row=i, column=1,
                                                                        sticky="w", pady=2)
+        if self.app.user["admin"]:
+            box = ttk.LabelFrame(f, text="Daten entfernen", padding=10)
+            box.grid(row=len(rows) + 2, column=0, columnspan=2, sticky="ew", pady=(18, 0))
+            ttk.Label(box, style="Mute.TLabel", wraplength=560, justify="left",
+                      text="Löscht alle Einträge, Benutzer und Passwörter dieses Rechners sowie "
+                           "deine Ansicht. Danach wird DocuBuilder beendet und kann gelöscht "
+                           "werden. Windows fragt nach Administratorrechten.").pack(anchor="w")
+            ttk.Button(box, text="DocuBuilder-Daten entfernen …",
+                       command=self.remove_data).pack(anchor="w", pady=(8, 0))
+
+    def remove_data(self):
+        if not messagebox.askyesno(
+                APP_NAME, "Wirklich ALLE DocuBuilder-Daten auf diesem Rechner löschen?\n\n"
+                          "Einträge, Benutzer und Passwörter gehen verloren. Das kann nicht "
+                          "rückgängig gemacht werden.", icon="warning", default="no", parent=self):
+            return
+        pw = simpledialog.askstring(APP_NAME, f"Zur Bestätigung das {ADMIN_NAME}-Passwort eingeben:",
+                                    show="•", parent=self)
+        if pw is None:
+            return
+        admin = next((u for u in self.app.settings["users"] if u["admin"]), None)
+        if not (admin and verify_password(pw, admin["hash"])):
+            messagebox.showerror(APP_NAME, "Falsches Passwort. Es wurde nichts gelöscht.", parent=self)
+            return
+        err = remove_all_data()
+        if err:
+            messagebox.showerror(APP_NAME, err, parent=self)
+            return
+        messagebox.showinfo(
+            APP_NAME, "Alle DocuBuilder-Daten wurden entfernt.\n\nDocuBuilder wird jetzt beendet. "
+                      "Danach kannst du die Programmdatei löschen.\n\nAndere Windows-Benutzer "
+                      "können ihre Ansicht unter %APPDATA%\\DocuBuilder selbst löschen.", parent=self)
+        self.app.destroy()
 
 
 # ---------------------------------------------------------------- Default
