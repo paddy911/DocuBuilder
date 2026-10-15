@@ -1,0 +1,88 @@
+# Stable: jeder Merge/Push auf main wird ein Release.
+# Erster Lauf: 1.0.0.0 (noch kein Tag). Danach erhöht jeder Lauf Minor: 1.1.0.0, 1.2.0.0 ...
+# Anschließend wird main in nightly zurückgeführt, damit Nightly auf der neuen Version weiterzählt.
+name: Stable
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read   # nötig für SignPath
+
+concurrency:
+  group: stable
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Version erhöhen, committen und taggen
+        id: v
+        run: |
+          v=$(python tools/version.py release)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git commit -am "Version $v [skip ci]"
+          fi
+          git tag "v$v"
+          git push origin HEAD:main "v$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/_build.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      channel: stable
+      ref: v${{ needs.version.outputs.version }}
+    secrets: inherit
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.version }}
+          name: DocuBuilder ${{ needs.version.outputs.version }}
+          files: |
+            out/windows/DocuBuilder.exe
+            out/windows/DocuBuilder.exe.sha256
+            out/linux/DocuBuilder
+            out/linux/DocuBuilder.sha256
+
+  sync-nightly:
+    needs: [version, release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: main in nightly übernehmen
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin nightly >/dev/null; then
+            git checkout -B nightly origin/nightly
+            git merge --no-edit origin/main -m "main (Version ${{ needs.version.outputs.version }}) in nightly übernommen"
+          else
+            git checkout -B nightly origin/main
+          fi
+          git push origin nightly

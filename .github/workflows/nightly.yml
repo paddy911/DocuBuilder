@@ -1,0 +1,62 @@
+# Nightly: jede Änderung auf dem Branch nightly wird gebaut und als Vorabversion veröffentlicht.
+# Version = Stable-Version + Build-Nummer (1.0.0.1, 1.0.0.2 ...). Die Build-Nummer zählt die eigenen
+# Commits auf nightly seit dem letzten Abgleich mit main; sie wird nur beim Bauen gesetzt.
+name: Nightly
+
+on:
+  push:
+    branches: [nightly]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read   # nötig für SignPath
+
+concurrency:
+  group: nightly
+  cancel-in-progress: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Nightly-Version berechnen
+        id: v
+        run: echo "version=$(python tools/version.py nightly)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: version
+    uses: ./.github/workflows/_build.yml
+    with:
+      version: ${{ needs.version.outputs.version }}
+      channel: nightly
+      ref: ${{ github.sha }}
+    secrets: inherit
+
+  release:
+    needs: [version, build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly-v${{ needs.version.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          name: DocuBuilder Nightly ${{ needs.version.outputs.version }}
+          prerelease: true
+          body: Vorabversion mit den neuesten Änderungen. Nicht für den produktiven Einsatz.
+          files: |
+            out/windows/DocuBuilder.exe
+            out/windows/DocuBuilder.exe.sha256
+            out/linux/DocuBuilder
+            out/linux/DocuBuilder.sha256

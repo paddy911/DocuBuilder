@@ -7,6 +7,9 @@ __pycache__/
 
 # Persönliche Einstellungen (nicht veröffentlichen)
 config.json
+.docubuilder.dat
+.docubuilder.dat.tmp
+portable.txt
 
 # Editor
 .vscode/
