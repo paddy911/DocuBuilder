@@ -39,6 +39,13 @@ Beim Start meldet man sich mit Benutzername und Passwort an (Groß-/Kleinschreib
 
 Mit **Übernehmen** wird gespeichert. Das Konto „Admin“ kann weder gelöscht noch eingeschränkt werden.
 
+## DocuBuilder entfernen
+Wer DocuBuilder nicht mehr verwenden will: als **Admin** anmelden → **Einstellungen → Info → „DocuBuilder-Daten entfernen …“**. Nach einer Rückfrage und erneuter Eingabe des Admin-Passworts werden gelöscht:
+- die gemeinsame Konfiguration `C:\ProgramData\DocuBuilder\` (Einträge, Benutzer, Passwörter). Windows fragt dafür nach Administratorrechten (UAC).
+- die eigene Ansicht `%APPDATA%\DocuBuilder\`
+
+Danach beendet sich DocuBuilder, und die Programmdatei (`DocuBuilder.exe`) kann gelöscht werden. Andere Windows-Benutzer können ihre Ansicht unter `%APPDATA%\DocuBuilder` selbst löschen. Im portablen Modus wird nur die Einstellungsdatei gelöscht, nicht der Programmordner.
+
 **Admin-Passwort vergessen?** Dann gibt es im Programm keinen Weg zurück. Ein Windows-Administrator muss die Datei `C:\ProgramData\DocuBuilder\.docubuilder.dat` löschen (versteckte Dateien einblenden). Danach startet DocuBuilder mit der Ersteinrichtung, alle Einträge und Benutzer sind dann weg.
 
 ## Starten (ohne Build)
@@ -50,7 +57,19 @@ python3 docubuilder.py       # Linux (benötigt python3-tk)
 ## Fertige Programme herunterladen
 Unter **Releases** liegen `DocuBuilder.exe` (Windows) und `DocuBuilder` (Linux).
 
+## Installieren (Windows)
+`DocuBuilder-Setup-<Version>.exe` aus den **Releases** starten. Das Installationsprogramm
+- installiert nach `C:\Program Files\DocuBuilder` (Administratorrechte nötig),
+- legt einen Eintrag im Startmenü an (Desktop-Verknüpfung optional),
+- richtet den geschützten Einstellungsordner `C:\ProgramData\DocuBuilder` ein; ein Start „als Administrator“ ist danach nicht mehr nötig,
+- installiert neuere Versionen einfach über die alte; Einträge und Benutzer bleiben erhalten.
+
+**Deinstallieren:** Windows-Einstellungen → Apps → Installierte Apps → DocuBuilder → Deinstallieren. Dabei wird gefragt, ob auch die Einstellungen (Einträge, Benutzer, Passwörter) gelöscht werden sollen.
+
+Alternativ gibt es weiterhin die einzelne `DocuBuilder.exe` ohne Installation.
+
 ## Selbst bauen
+- Windows-Installationsprogramm: `build_installer.bat` doppelklicken (benötigt Inno Setup 6: `winget install JRSoftware.InnoSetup`), Ergebnis `dist\DocuBuilder-Setup-<Version>.exe`
 - Windows: `build_windows.bat` doppelklicken, Ergebnis in `dist\`
 - Windows signieren: `sign_windows.bat <Fingerprint>` (siehe CODE_SIGNING.md)
 - Linux: `./build_linux.sh`, Ergebnis in `dist/`

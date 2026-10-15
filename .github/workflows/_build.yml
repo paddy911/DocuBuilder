@@ -67,18 +67,30 @@ jobs:
           Write-Host "Signaturstatus: $($sig.Status)"
           if ($sig.Status -ne 'Valid') { throw "Signatur ungültig: $($sig.Status)" }
 
-      - name: Prüfsumme erzeugen
+      - name: Installationsprogramm bauen
         shell: pwsh
         run: |
-          $h = (Get-FileHash dist\DocuBuilder.exe -Algorithm SHA256).Hash.ToLower()
-          "$h  DocuBuilder.exe" | Out-File -Encoding ascii dist\DocuBuilder.exe.sha256
+          choco install innosetup -y --no-progress
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe nicht gefunden" }
+          & $iscc "/DAppVersion=${{ inputs.version }}" "/DAppChannel=${{ inputs.channel }}" installer\DocuBuilder.iss
+          if ($LASTEXITCODE) { throw "Inno Setup fehlgeschlagen" }
+
+      - name: Prüfsummen erzeugen
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -Filter *.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+            "$h  $($_.Name)" | Out-File -Encoding ascii "$($_.FullName).sha256"
+          }
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows
           path: |
-            dist/DocuBuilder.exe
-            dist/DocuBuilder.exe.sha256
+            dist/*.exe
+            dist/*.exe.sha256
 
   linux:
     runs-on: ubuntu-latest
