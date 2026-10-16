@@ -5,7 +5,8 @@ Kleines Desktop-Tool für Windows und Linux: Eine Auswahl an Buttons, jeder Butt
 ## Funktionen
 - Buttons öffnen Excel-Dateien mit dem Standardprogramm (Windows: Excel, Linux: `xdg-open`)
 - Unterstützt lokale Pfade, Netzpfade (`\\Server\Freigabe\datei.xlsx`) und Web-Links
-- Einstellungen mit drei Reitern: **Einträge**, **Allgemein** (Ansicht hell/dunkel/System) und **Info**
+- Einstellungen mit zwei Reitern: **Einträge** und **Allgemein** (Ansicht hell/dunkel/System, Updates)
+- **Menü** oben rechts: Nach Updates suchen, Info zu DocuBuilder, Beenden
 - **Anmeldung** beim Start mit Benutzername und Passwort; das Konto **Admin** besteht immer
 - **Default-Fenster**: beim ersten Start legst du das Admin-Passwort, die Benutzer, die Anzahl der Buttons und den Ordner mit deinen Dateien fest (Excel-Dateien aus dem Ordner können direkt als Buttons übernommen werden). Danach öffnet es sich nur noch mit **ALT+F11** (alternativ **STRG+UMSCHALT+F11**)
 - Einstellungen liegen **verschlüsselt und versteckt**; ändern dürfen sie nur der **Admin und Benutzer mit Recht** (siehe Abschnitt „Benutzer und Rechte“)
@@ -40,7 +41,7 @@ Beim Start meldet man sich mit Benutzername und Passwort an (Groß-/Kleinschreib
 Mit **Übernehmen** wird gespeichert. Das Konto „Admin“ kann weder gelöscht noch eingeschränkt werden.
 
 ## DocuBuilder entfernen
-Wer DocuBuilder nicht mehr verwenden will: als **Admin** anmelden → **Einstellungen → Info → „DocuBuilder-Daten entfernen …“**. Nach einer Rückfrage und erneuter Eingabe des Admin-Passworts werden gelöscht:
+Wer DocuBuilder nicht mehr verwenden will: als **Admin** anmelden → **Einstellungen → Allgemein → „DocuBuilder-Daten entfernen …“**. Nach einer Rückfrage und erneuter Eingabe des Admin-Passworts werden gelöscht:
 - die gemeinsame Konfiguration `C:\ProgramData\DocuBuilder\` (Einträge, Benutzer, Passwörter). Windows fragt dafür nach Administratorrechten (UAC).
 - die eigene Ansicht `%APPDATA%\DocuBuilder\`
 

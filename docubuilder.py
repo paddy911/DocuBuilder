@@ -731,21 +731,13 @@ class Settings(tk.Toplevel):
         nb.grid(row=0, column=0, sticky="nsew")
         self.tab_items = ttk.Frame(nb, padding=12)
         self.tab_general = ttk.Frame(nb, padding=16)
-        self.tab_info = ttk.Frame(nb, padding=16)
         nb.add(self.tab_items, text="Einträge")
         nb.add(self.tab_general, text="Allgemein")
-        nb.add(self.tab_info, text="Info")
         ttk.Button(outer, text="Schließen", command=self.destroy).grid(
             row=1, column=0, sticky="e", pady=(12, 0))
 
         self.build_items_tab()
         self.build_general_tab()
-        self.tabs = {"items": self.tab_items, "general": self.tab_general, "info": self.tab_info}
-        self.build_info_tab()
-
-    def show_tab(self, name):
-        if name in self.tabs:
-            self.nb.select(self.tabs[name])
 
     # ---- Tab Einträge
     def build_items_tab(self):
@@ -892,6 +884,8 @@ class Settings(tk.Toplevel):
                             ("light", "Hell"), ("dark", "Dunkel")):
             ttk.Radiobutton(view, text=text, value=value, variable=self.theme_var,
                             command=self.apply_theme_choice).pack(anchor="w", pady=2)
+        ttk.Button(view, text="Ansicht auf Standard zurücksetzen",
+                   command=self.reset_defaults).pack(anchor="w", pady=(8, 0))
 
         upd = ttk.LabelFrame(f, text="Updates", padding=12)
         upd.grid(row=1, column=0, sticky="ew", pady=(14, 0))
@@ -901,8 +895,15 @@ class Settings(tk.Toplevel):
         ttk.Button(upd, text="Jetzt nach Updates suchen …",
                    command=self.app.open_update).pack(anchor="w", pady=(8, 0))
 
-        ttk.Button(f, text="Ansicht auf Standard zurücksetzen", command=self.reset_defaults).grid(
-            row=2, column=0, sticky="w", pady=(18, 0))
+        if self.app.user["admin"]:
+            box = ttk.LabelFrame(f, text="Daten entfernen (nur Admin)", padding=10)
+            box.grid(row=2, column=0, sticky="ew", pady=(14, 0))
+            ttk.Label(box, style="Mute.TLabel", wraplength=560, justify="left",
+                      text="Löscht alle Einträge, Benutzer und Passwörter dieses Rechners sowie "
+                           "deine Ansicht. Danach wird DocuBuilder beendet und kann gelöscht "
+                           "werden. Windows fragt nach Administratorrechten.").pack(anchor="w")
+            ttk.Button(box, text="DocuBuilder-Daten entfernen …",
+                       command=self.remove_data).pack(anchor="w", pady=(8, 0))
 
     def apply_update_choice(self):
         self.app.settings["update_check"] = self.upd_var.get()
@@ -923,38 +924,7 @@ class Settings(tk.Toplevel):
         self.app.apply_theme()
         self.app.build(force=True)
 
-    # ---- Tab Info
-    def build_info_tab(self):
-        f = self.tab_info
-        f.columnconfigure(1, weight=1)
-        ttk.Label(f, text=APP_NAME, style="Title.TLabel").grid(row=0, column=0, columnspan=2,
-                                                               sticky="w")
-        ttk.Label(f, text="Buttons, die hinterlegte Excel-Listen öffnen.",
-                  style="Mute.TLabel").grid(row=1, column=0, columnspan=2, sticky="w",
-                                            pady=(0, 14))
-        rows = (("Version", APP_VERSION + (" (Nightly)" if APP_CHANNEL == "nightly" else "")),
-                ("Lizenz", "MIT"),
-                ("Konfiguration", CONFIG),
-                ("Angemeldet als", self.app.user["name"] + (
-                    " (Admin)" if self.app.user["admin"] else
-                    " (darf ändern)" if self.app.can_edit else " (nur ansehen)")),
-                ("System", platform.platform()),
-                ("Python", platform.python_version()))
-        for i, (k, v) in enumerate(rows, start=2):
-            ttk.Label(f, text=k + ":", style="Mute.TLabel").grid(row=i, column=0, sticky="nw",
-                                                                 padx=(0, 12), pady=2)
-            ttk.Label(f, text=v, wraplength=480, justify="left").grid(row=i, column=1,
-                                                                       sticky="w", pady=2)
-        if self.app.user["admin"]:
-            box = ttk.LabelFrame(f, text="Daten entfernen", padding=10)
-            box.grid(row=len(rows) + 2, column=0, columnspan=2, sticky="ew", pady=(18, 0))
-            ttk.Label(box, style="Mute.TLabel", wraplength=560, justify="left",
-                      text="Löscht alle Einträge, Benutzer und Passwörter dieses Rechners sowie "
-                           "deine Ansicht. Danach wird DocuBuilder beendet und kann gelöscht "
-                           "werden. Windows fragt nach Administratorrechten.").pack(anchor="w")
-            ttk.Button(box, text="DocuBuilder-Daten entfernen …",
-                       command=self.remove_data).pack(anchor="w", pady=(8, 0))
-
+    # ---- Daten entfernen (nur Admin, im Tab Allgemein)
     def remove_data(self):
         if not messagebox.askyesno(
                 APP_NAME, "Wirklich ALLE DocuBuilder-Daten auf diesem Rechner löschen?\n\n"
@@ -978,6 +948,44 @@ class Settings(tk.Toplevel):
                       "Danach kannst du die Programmdatei löschen.\n\nAndere Windows-Benutzer "
                       "können ihre Ansicht unter %APPDATA%\\DocuBuilder selbst löschen.", parent=self)
         self.app.destroy()
+
+
+# ---------------------------------------------------------------- Info
+class InfoDialog(tk.Toplevel):
+    """Eigenes Fenster „Info zu DocuBuilder“ (aus dem Menü)."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.title("Info zu DocuBuilder")
+        self.resizable(False, False)
+        self.configure(bg=app.pal["bg"])
+        self.transient(app)
+        set_dark_titlebar(self, app.is_dark)
+        self.bind("<Escape>", lambda e: self.destroy())
+
+        f = ttk.Frame(self, padding=20)
+        f.pack(fill="both", expand=True)
+        ttk.Label(f, text=APP_NAME, style="Title.TLabel").grid(row=0, column=0, columnspan=2,
+                                                               sticky="w")
+        ttk.Label(f, text="Buttons, die hinterlegte Excel-Listen öffnen.",
+                  style="Mute.TLabel").grid(row=1, column=0, columnspan=2, sticky="w",
+                                            pady=(0, 14))
+        user = app.user
+        rows = (("Version", APP_VERSION + (" (Nightly)" if APP_CHANNEL == "nightly" else "")),
+                ("Lizenz", "MIT"),
+                ("Konfiguration", CONFIG),
+                ("Angemeldet als", user["name"] + (
+                    " (Admin)" if user["admin"] else
+                    " (darf ändern)" if app.can_edit else " (nur ansehen)")),
+                ("System", platform.platform()),
+                ("Python", platform.python_version()))
+        for i, (k, v) in enumerate(rows, start=2):
+            ttk.Label(f, text=k + ":", style="Mute.TLabel").grid(row=i, column=0, sticky="nw",
+                                                                 padx=(0, 12), pady=2)
+            ttk.Label(f, text=v, wraplength=420, justify="left").grid(row=i, column=1,
+                                                                       sticky="w", pady=2)
+        ttk.Button(f, text="Schließen", style="Accent.TButton", command=self.destroy).grid(
+            row=len(rows) + 2, column=0, columnspan=2, sticky="e", pady=(18, 0))
 
 
 # ---------------------------------------------------------------- Default
@@ -1491,6 +1499,7 @@ class App(tk.Tk):
         self.settings_win = None
         self.default_win = None
         self.update_win = None
+        self.info_win = None
         self._update_checked = False            # automatische Suche nur einmal je Programmstart
         self.ui_font = tkfont.nametofont("TkDefaultFont").actual("family")
         self.pal = PALETTES["light"]
@@ -1560,7 +1569,7 @@ class App(tk.Tk):
         return outer
 
     def show_login(self, msg=""):
-        for win in (self.settings_win, self.default_win, self.update_win):
+        for win in (self.settings_win, self.default_win, self.update_win, self.info_win):
             if self._alive(win):
                 win.destroy()
         self.user = None
@@ -1640,7 +1649,7 @@ class App(tk.Tk):
         return [
             ("Nach Updates suchen …", self.open_update),
             None,
-            ("Info zu DocuBuilder", lambda: self.open_settings(tab="info")),
+            ("Info zu DocuBuilder", self.open_info),
             None,
             ("Beenden", self.destroy),
         ]
@@ -1672,14 +1681,19 @@ class App(tk.Tk):
             return
         self.update_win = UpdateDialog(self, found)
 
-    def open_settings(self, tab=None):
+    def open_settings(self):
         if not self.user or self._alive(self.default_win):
             return
         if not self._alive(self.settings_win):
             self.settings_win = Settings(self)
         self.settings_win.lift()
-        if tab:
-            self.settings_win.show_tab(tab)
+
+    def open_info(self):
+        if not self.user:
+            return
+        if not self._alive(self.info_win):
+            self.info_win = InfoDialog(self)
+        self.info_win.lift()
 
     def open_default(self, first_run=False):
         if self._alive(self.settings_win):
