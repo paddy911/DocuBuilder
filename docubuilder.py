@@ -547,6 +547,17 @@ def download_update(update, name, dest_dir, progress=None):
     return path
 
 
+def clean_child_env():
+    """PyInstaller-Variablen entfernen, bevor ein neuer Prozess startet (Setup oder neue .exe).
+    Sonst hält sich das neue DocuBuilder für einen Unterprozess dieser .exe und sucht seine Dateien
+    in deren temporärem Ordner _MEI…, der beim Beenden gelöscht wird („Failed to load Python DLL“)."""
+    mei = os.path.normcase(getattr(sys, "_MEIPASS", "") or "")
+    for key in list(os.environ):
+        value = os.path.normcase(os.environ[key])
+        if key.startswith("_PYI_") or key == "_MEIPASS2" or (mei and value.startswith(mei)):
+            del os.environ[key]
+
+
 def start_setup(path):
     """Installationsprogramm ohne Rückfragen starten; Windows fragt nach Adminrechten (UAC).
     /UPDATE=1 lässt das Setup DocuBuilder danach wieder starten (siehe installer/DocuBuilder.iss)."""
@@ -1454,6 +1465,7 @@ class UpdateDialog(tk.Toplevel):
         self.info.configure(text="Prüfsumme korrekt. Update wird installiert …")
         self.update_idletasks()
         try:
+            clean_child_env()
             if mode == "setup":
                 start_setup(path)
             else:

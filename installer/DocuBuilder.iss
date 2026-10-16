@@ -61,13 +61,42 @@ Name: "{autodesktop}\DocuBuilder"; Filename: "{app}\DocuBuilder.exe"; AppUserMod
 Filename: "{app}\DocuBuilder.exe"; Parameters: "--setup-machine"; StatusMsg: "Einstellungsordner wird eingerichtet ..."; Flags: runhidden waituntilterminated
 ; Programm danach als normaler Benutzer starten (nicht mit Adminrechten)
 Filename: "{app}\DocuBuilder.exe"; Description: "{cm:LaunchProgram,DocuBuilder}"; Flags: nowait postinstall skipifsilent runasoriginaluser
-; Update aus DocuBuilder heraus (still, mit /UPDATE=1): Programm danach automatisch neu starten
-Filename: "{app}\DocuBuilder.exe"; Flags: nowait runasoriginaluser; Check: IsUpdate
+; Update aus DocuBuilder heraus (still, mit /UPDATE=1): Programm danach automatisch neu starten.
+; Über den Explorer, damit es mit dessen sauberer Umgebung startet und nicht die Variablen des
+; alten DocuBuilder erbt (sonst "Failed to load Python DLL ... _MEI...").
+Filename: "{win}\explorer.exe"; Parameters: """{app}\DocuBuilder.exe"""; Flags: nowait runasoriginaluser; Check: IsUpdate
 
 [Code]
+function SetEnvironmentVariableW(lpName: String; lpValue: Cardinal): Integer;
+  external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+
 function IsUpdate: Boolean;
 begin
   Result := ExpandConstant('{param:UPDATE|0}') = '1';
+end;
+
+{ Variablen entfernen, die eine einzelne PyInstaller-.exe (das alte DocuBuilder) an das Setup
+  vererbt hat. Sonst sucht die neu gestartete DocuBuilder.exe (z. B. --setup-machine) ihre
+  Dateien im bereits gelöschten Temp-Ordner des alten Programms. }
+procedure RemoveInheritedPyInstallerEnv;
+var
+  Names: TArrayOfString;
+  I: Integer;
+begin
+  Names := ['_PYI_APPLICATION_HOME_DIR', '_PYI_ARCHIVE_FILE', '_PYI_PARENT_PROCESS_LEVEL',
+            '_PYI_SPLASH_IPC', '_MEIPASS2'];
+  for I := 0 to GetArrayLength(Names) - 1 do
+    SetEnvironmentVariableW(Names[I], 0);
+  if Pos('\_MEI', GetEnv('TCL_LIBRARY')) > 0 then
+    SetEnvironmentVariableW('TCL_LIBRARY', 0);
+  if Pos('\_MEI', GetEnv('TK_LIBRARY')) > 0 then
+    SetEnvironmentVariableW('TK_LIBRARY', 0);
+end;
+
+function InitializeSetup: Boolean;
+begin
+  RemoveInheritedPyInstallerEnv;
+  Result := True;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
