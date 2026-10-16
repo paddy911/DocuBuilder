@@ -32,7 +32,7 @@ jobs:
         run: python tools/version.py set ${{ inputs.version }} --channel ${{ inputs.channel }}
       - run: python -m pip install pyinstaller
       - name: Bauen
-        run: python -m PyInstaller --onefile --windowed --name DocuBuilder --version-file version_info.txt docubuilder.py
+        run: python -m PyInstaller --onefile --windowed --name DocuBuilder --version-file version_info.txt --icon assets/docubuilder.ico --add-data "assets/docubuilder.ico:assets" --add-data "assets/docubuilder.png:assets" docubuilder.py
 
       - name: Unsignierte Datei hochladen
         id: unsigned
@@ -106,7 +106,7 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y python3-tk
       - run: python -m pip install pyinstaller
       - name: Bauen
-        run: python -m PyInstaller --onefile --windowed --name DocuBuilder docubuilder.py
+        run: python -m PyInstaller --onefile --windowed --name DocuBuilder --add-data "assets/docubuilder.png:assets" docubuilder.py
       - name: Prüfsumme erzeugen
         run: cd dist && sha256sum DocuBuilder > DocuBuilder.sha256
       - uses: actions/upload-artifact@v4

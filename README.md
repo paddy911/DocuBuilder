@@ -71,6 +71,7 @@ Alternativ gibt es weiterhin die einzelne `DocuBuilder.exe` ohne Installation.
 ## Selbst bauen
 - Windows-Installationsprogramm: `build_installer.bat` doppelklicken (benötigt Inno Setup 6: `winget install JRSoftware.InnoSetup`), Ergebnis `dist\DocuBuilder-Setup-<Version>.exe`
 - Windows: `build_windows.bat` doppelklicken, Ergebnis in `dist\`
+- Icon: Vorlagen sind `assets/docubuilder.svg` (groß) und `assets/docubuilder-small.svg` (bis 32 px). Nach Änderungen `python tools/make_icons.py` ausführen (benötigt `pip install resvg-py pillow`); das erzeugt `assets/docubuilder.ico` und `assets/docubuilder.png`, die im Repo liegen.
 - Windows signieren: `sign_windows.bat <Fingerprint>` (siehe CODE_SIGNING.md)
 - Linux: `./build_linux.sh`, Ergebnis in `dist/`
 

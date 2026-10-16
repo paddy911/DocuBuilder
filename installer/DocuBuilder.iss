@@ -32,6 +32,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 LicenseFile=..\LICENSE
 OutputDir=..\dist
 OutputBaseFilename=DocuBuilder-Setup-{#AppVersion}
+SetupIconFile=..\assets\docubuilder.ico
 UninstallDisplayIcon={app}\DocuBuilder.exe
 UninstallDisplayName={#VerName}
 CloseApplications=yes
@@ -51,8 +52,9 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\DocuBuilder"; Filename: "{app}\DocuBuilder.exe"
-Name: "{autodesktop}\DocuBuilder"; Filename: "{app}\DocuBuilder.exe"; Tasks: desktopicon
+; AppUserModelID wie im Programm: angeheftetes Taskleisten-Symbol und Fenster gehören zusammen
+Name: "{autoprograms}\DocuBuilder"; Filename: "{app}\DocuBuilder.exe"; AppUserModelID: "PatrickLange.DocuBuilder"
+Name: "{autodesktop}\DocuBuilder"; Filename: "{app}\DocuBuilder.exe"; AppUserModelID: "PatrickLange.DocuBuilder"; Tasks: desktopicon
 
 [Run]
 ; Gemeinsamen Einstellungsordner (C:\ProgramData\DocuBuilder) mit den passenden Rechten anlegen

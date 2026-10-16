@@ -6,7 +6,7 @@ cd /d "%~dp0"
 for /f %%v in ('py tools\version.py show') do set VER=%%v
 
 py -m pip install --upgrade pyinstaller || goto :fehler
-py -m PyInstaller --noconfirm --onefile --windowed --name DocuBuilder --version-file version_info.txt docubuilder.py || goto :fehler
+py -m PyInstaller --noconfirm --onefile --windowed --name DocuBuilder --version-file version_info.txt --icon assets/docubuilder.ico --add-data "assets/docubuilder.ico:assets" --add-data "assets/docubuilder.png:assets" docubuilder.py || goto :fehler
 
 set "ISCC=%ProgramFiles(x86)%\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=%ProgramFiles%\Inno Setup 6\ISCC.exe"

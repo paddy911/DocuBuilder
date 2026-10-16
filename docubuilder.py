@@ -51,6 +51,16 @@ def app_dir():
     return os.path.dirname(os.path.abspath(__file__))
 
 
+def resource(name):
+    """Mitgelieferte Datei aus assets/ (in der .exe entpackt PyInstaller sie nach _MEIPASS)."""
+    return os.path.join(getattr(sys, "_MEIPASS", None) or app_dir(), "assets", name)
+
+
+# Gleiche ID wie die Verknüpfungen des Installationsprogramms: Windows gruppiert das Fenster
+# dann in der Taskleiste unter dem DocuBuilder-Icon statt unter Python.
+APP_USER_MODEL_ID = "PatrickLange.DocuBuilder"
+
+
 WIN = sys.platform.startswith("win")
 MAGIC = b"DBC1"
 # Eingebetteter Schlüsselanteil: verhindert Lesen/Bearbeiten im Editor, ist aber kein Schutz
@@ -1137,7 +1147,14 @@ class App(tk.Tk):
     TILE_W = 220
 
     def __init__(self):
+        if WIN:
+            try:
+                import ctypes
+                ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+            except Exception:  # noqa: BLE001
+                pass
         super().__init__()
+        self.set_icon()
         self.title(APP_TITLE)
         self.geometry("720x420")
         self.minsize(360, 240)
@@ -1169,6 +1186,17 @@ class App(tk.Tk):
         for key in DEFAULT_SHORTCUTS:
             self.bind_all(key, lambda e: self.open_default() or "break")
         self.after(200, self.startup)
+
+    def set_icon(self):
+        """Fenster- und Taskleisten-Icon, gilt auch für alle Dialoge."""
+        try:
+            if WIN:
+                self.iconbitmap(default=resource("docubuilder.ico"))
+            else:
+                self._icon = tk.PhotoImage(file=resource("docubuilder.png"))
+                self.iconphoto(True, self._icon)
+        except (tk.TclError, OSError):
+            pass
 
     @property
     def can_edit(self):
