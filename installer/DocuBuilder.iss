@@ -21,7 +21,7 @@ AppName=DocuBuilder
 AppVersion={#AppVersion}
 AppVerName={#VerName}
 AppPublisher=Patrick Lange
-AppPublisherURL=https://github.com/paddy911/DocuBuilder
+AppPublisherURL=https://github.com/plange-dev/DocuBuilder
 VersionInfoVersion={#AppVersion}
 DefaultDirName={autopf}\DocuBuilder
 DefaultGroupName=DocuBuilder
@@ -61,8 +61,15 @@ Name: "{autodesktop}\DocuBuilder"; Filename: "{app}\DocuBuilder.exe"; AppUserMod
 Filename: "{app}\DocuBuilder.exe"; Parameters: "--setup-machine"; StatusMsg: "Einstellungsordner wird eingerichtet ..."; Flags: runhidden waituntilterminated
 ; Programm danach als normaler Benutzer starten (nicht mit Adminrechten)
 Filename: "{app}\DocuBuilder.exe"; Description: "{cm:LaunchProgram,DocuBuilder}"; Flags: nowait postinstall skipifsilent runasoriginaluser
+; Update aus DocuBuilder heraus (still, mit /UPDATE=1): Programm danach automatisch neu starten
+Filename: "{app}\DocuBuilder.exe"; Flags: nowait runasoriginaluser; Check: IsUpdate
 
 [Code]
+function IsUpdate: Boolean;
+begin
+  Result := ExpandConstant('{param:UPDATE|0}') = '1';
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Dir: String;

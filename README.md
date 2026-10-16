@@ -68,6 +68,14 @@ Unter **Releases** liegen `DocuBuilder.exe` (Windows) und `DocuBuilder` (Linux).
 
 Alternativ gibt es weiterhin die einzelne `DocuBuilder.exe` ohne Installation.
 
+## Updates
+**Menü → Nach Updates suchen …** (oder *Einstellungen → Allgemein → Jetzt nach Updates suchen*) fragt die Releases auf GitHub ab:
+- Eine **Stable**-Version sucht nur Stable-Releases, eine **Nightly**-Version zusätzlich die Vorabversionen.
+- Gibt es eine neuere Version, zeigt das Fenster die Änderungen. **Jetzt aktualisieren** (nur für den **Admin**) lädt das Update herunter, prüft die SHA-256-Prüfsumme und installiert es:
+  - **Installierte Version:** Das Setup läuft ohne Rückfragen; Windows fragt nach Administratorrechten. Danach startet DocuBuilder neu. Einträge und Benutzer bleiben erhalten.
+  - **Einzelne `DocuBuilder.exe`:** Die Datei wird ausgetauscht und neu gestartet. Dafür braucht DocuBuilder Schreibrechte im eigenen Ordner.
+- Optional: *Einstellungen → Allgemein → „Beim Anmelden nach Updates suchen“* (standardmäßig aus) meldet sich nur, wenn es ein Update gibt.
+
 ## Selbst bauen
 - Windows-Installationsprogramm: `build_installer.bat` doppelklicken (benötigt Inno Setup 6: `winget install JRSoftware.InnoSetup`), Ergebnis `dist\DocuBuilder-Setup-<Version>.exe`
 - Windows: `build_windows.bat` doppelklicken, Ergebnis in `dist\`
@@ -135,6 +143,8 @@ Auf Rechnern, die du selbst verwaltest, lässt sich die Meldung vorab entfernen:
 
 ## Datenschutz
 Dieses Programm überträgt keine Daten an andere Systeme im Netzwerk, außer der Nutzer hat dies ausdrücklich veranlasst.
+
+Die Update-Suche ruft nur die öffentliche Release-Liste von GitHub ab (`api.github.com`) und lädt bei einem Update die Programmdatei von `github.com` herunter. Dabei werden keine Einträge, Benutzer oder sonstigen Daten übertragen. Die Suche läuft nur auf Knopfdruck oder, wenn unter *Einstellungen → Allgemein* eingeschaltet, einmal beim Anmelden.
 
 ## Lizenz
 MIT
