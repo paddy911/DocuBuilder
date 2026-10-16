@@ -131,6 +131,9 @@ Einträge, Dateiordner und Benutzerkonten gelten für **alle Windows-Benutzer** 
 
 **Grenzen:** Die Anmeldung schützt vor normalen Benutzern. Windows-Administratoren können die Datei immer löschen (und damit alles zurücksetzen). Wer den Quelltext kennt, kann die Verschlüsselung nachbauen, weil der Schlüsselanteil im Programm steckt.
 
+## Windows-Hinweis: Smart App Control
+Ist unter Windows 11 **Smart App Control** eingeschaltet, blockiert Windows unsignierte Programme vollständig („Eine Anwendungssteuerungsrichtlinie hat diese Datei blockiert“, Fehler 4551), auch das Update-Setup. Abhilfe ist eine Signatur von DocuBuilder und Setup (siehe [CODE_SIGNING.md](CODE_SIGNING.md)). Bis dahin lässt sich DocuBuilder auf solchen PCs nur installieren oder aktualisieren, wenn Smart App Control ausgeschaltet ist (Windows-Sicherheit → App- & Browsersteuerung). Das ist eine Sicherheitsentscheidung für den PC; je nach Windows-Version lässt es sich danach nur durch Zurücksetzen von Windows wieder einschalten.
+
 ## Windows-Hinweis: SmartScreen
 Beim ersten Start kann Windows „Der Computer wurde durch Windows geschützt" anzeigen. Das ist bei neuen Programmen normal, auch bei signierten: SmartScreen vertraut Dateien erst nach einer gewissen Zahl an Downloads und Starts.
 

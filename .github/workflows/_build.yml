@@ -77,6 +77,50 @@ jobs:
           & $iscc "/DAppVersion=${{ inputs.version }}" "/DAppChannel=${{ inputs.channel }}" installer\DocuBuilder.iss
           if ($LASTEXITCODE) { throw "Inno Setup fehlgeschlagen" }
 
+      # Setup ebenfalls signieren (sonst blockiert z. B. Smart App Control das Update).
+      # Nur, wenn dafür eine eigene Artifact Configuration hinterlegt ist
+      # (Repository-Variable SIGNPATH_SETUP_ARTIFACT_CONFIGURATION_SLUG, siehe CODE_SIGNING.md).
+      - name: Setup für die Signierung vorbereiten
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_SETUP_ARTIFACT_CONFIGURATION_SLUG != '' }}
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory setup-unsigned | Out-Null
+          Copy-Item "dist\DocuBuilder-Setup-${{ inputs.version }}.exe" setup-unsigned\DocuBuilder-Setup.exe
+
+      - name: Unsigniertes Setup hochladen
+        id: unsigned_setup
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_SETUP_ARTIFACT_CONFIGURATION_SLUG != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-setup
+          path: setup-unsigned/DocuBuilder-Setup.exe
+
+      - name: Setup mit SignPath signieren
+        id: sign_setup
+        if: ${{ vars.SIGNPATH_ORGANIZATION_ID != '' && vars.SIGNPATH_SETUP_ARTIFACT_CONFIGURATION_SLUG != '' }}
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_SETUP_ARTIFACT_CONFIGURATION_SLUG }}
+          github-artifact-id: ${{ steps.unsigned_setup.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed-setup
+
+      - name: Signiertes Setup übernehmen und prüfen
+        if: ${{ steps.sign_setup.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          $zip = Get-ChildItem signed-setup -Filter *.zip -ErrorAction SilentlyContinue
+          if ($zip) { Expand-Archive $zip.FullName -DestinationPath signed-setup -Force }
+          $target = "dist\DocuBuilder-Setup-${{ inputs.version }}.exe"
+          Copy-Item signed-setup\DocuBuilder-Setup.exe $target -Force
+          $sig = Get-AuthenticodeSignature $target
+          Write-Host "Signaturstatus Setup: $($sig.Status)"
+          if ($sig.Status -ne 'Valid') { throw "Signatur des Setups ungültig: $($sig.Status)" }
+
       - name: Prüfsummen erzeugen
         shell: pwsh
         run: |

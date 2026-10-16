@@ -1474,9 +1474,19 @@ class UpdateDialog(tk.Toplevel):
         except OSError as e:
             self.bar.grid_remove()
             self.head.configure(text="Update nicht installiert")
-            self.info.configure(text=(
-                "Die Administratorrechte wurden nicht erteilt." if getattr(e, "winerror", None) == 1223
-                else f"Das Update konnte nicht installiert werden:\n{e}"))
+            code = getattr(e, "winerror", None)
+            if code == 1223:
+                text = "Die Administratorrechte wurden nicht erteilt."
+            elif code == 4551:                    # Smart App Control / Anwendungssteuerung
+                text = ("Windows hat das Update blockiert (Smart App Control bzw. eine "
+                        "Anwendungssteuerungsrichtlinie), weil die Datei nicht digital signiert ist.\n\n"
+                        "Bis DocuBuilder signiert ausgeliefert wird, lässt sich das Update nur "
+                        "installieren, wenn Smart App Control ausgeschaltet ist (Windows-Sicherheit → "
+                        "App- & Browsersteuerung). Das ist eine Sicherheitsentscheidung – im "
+                        "Zweifel bitte die IT fragen.")
+            else:
+                text = f"Das Update konnte nicht installiert werden:\n{e}"
+            self.info.configure(text=text)
             self.set_buttons(("Erneut versuchen", self.install, False), ("Schließen", self.close, True))
             return
         self.app.destroy()                        # Platz machen für die neue Version

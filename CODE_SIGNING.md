@@ -1,32 +1,57 @@
 # Code Signing
 
-Die Windows-Datei `DocuBuilder.exe` wird vom Maintainer mit einem eigenen Code-Signing-Zertifikat signiert. Lokal gebaute oder von GitHub Actions erzeugte, nicht nachträglich signierte Dateien sind **nicht** signiert.
+Ohne digitale Signatur blockiert **Smart App Control** (Windows 11) DocuBuilder und vor allem das **Update-Setup** („Eine Anwendungssteuerungsrichtlinie hat diese Datei blockiert“, Fehler 4551). SmartScreen warnt zusätzlich bei jedem neuen Download. Deshalb sollen `DocuBuilder.exe` **und** `DocuBuilder-Setup-<Version>.exe` mit einem Zertifikat einer anerkannten Zertifizierungsstelle signiert werden. Ein selbst erstelltes Zertifikat reicht dafür nicht.
 
-## Ablauf eines Releases
-1. Tag setzen und pushen: `git tag v1.0.0 && git push origin v1.0.0`
-2. GitHub Actions baut `DocuBuilder.exe` (unsigniert) und legt sie ins Release.
-3. Maintainer lädt die .exe herunter und legt sie nach `dist\DocuBuilder.exe`.
-4. `sign_windows.bat <Fingerprint>` ausführen. Das Skript signiert, prüft die Signatur und erzeugt `DocuBuilder.exe.sha256`.
-5. Signierte Dateien im Release ersetzen: `gh release upload v1.0.0 dist\DocuBuilder.exe dist\DocuBuilder.exe.sha256 --clobber`
+## Empfohlen: SignPath (automatisch in GitHub Actions)
+Die Pipeline (`.github/workflows/_build.yml`) signiert automatisch, sobald SignPath eingerichtet ist. Solange die Variablen fehlen, baut sie unsigniert weiter.
+
+Für Open-Source-Projekte gibt es kostenloses Signieren über die **SignPath Foundation** (Antrag auf signpath.org). Voraussetzungen erfüllt DocuBuilder bereits: öffentliches Repo, MIT-Lizenz, Build über GitHub Actions.
+
+### Einrichten
+1. Bei SignPath (bzw. SignPath Foundation) ein Projekt anlegen und das GitHub-Repo `plange-dev/DocuBuilder` als vertrauenswürdige Build-Quelle verbinden.
+2. Zwei **Artifact Configurations** anlegen:
+   - für das Programm: Inhalt von `signpath/artifact-configuration.xml` (signiert `DocuBuilder.exe`)
+   - für das Setup: Inhalt von `signpath/artifact-configuration-setup.xml` (signiert `DocuBuilder-Setup.exe`)
+3. Im GitHub-Repo unter **Settings → Secrets and variables → Actions** eintragen:
+
+   | Art | Name | Inhalt |
+   |---|---|---|
+   | Secret | `SIGNPATH_API_TOKEN` | API-Token eines SignPath-CI-Benutzers |
+   | Variable | `SIGNPATH_ORGANIZATION_ID` | Organisations-ID |
+   | Variable | `SIGNPATH_PROJECT_SLUG` | Projekt-Slug |
+   | Variable | `SIGNPATH_SIGNING_POLICY_SLUG` | Signing Policy (z. B. `release-signing`) |
+   | Variable | `SIGNPATH_ARTIFACT_CONFIGURATION_SLUG` | Slug der Konfiguration für das Programm |
+   | Variable | `SIGNPATH_SETUP_ARTIFACT_CONFIGURATION_SLUG` | Slug der Konfiguration für das Setup |
+
+4. Einen Nightly-Build anstoßen (Push auf `nightly` oder **Actions → Nightly → Run workflow**). Im Log stehen „Signaturstatus: Valid“ und „Signaturstatus Setup: Valid“.
+
+Wird die SignPath Foundation genutzt, muss im README und hier der Hinweis stehen:
+„Free code signing provided by SignPath.io, certificate by SignPath Foundation.“
+
+### Ablauf
+1. PyInstaller baut `DocuBuilder.exe` → SignPath signiert sie.
+2. Inno Setup baut das Setup mit der **signierten** `DocuBuilder.exe` → SignPath signiert das Setup.
+3. Prüfsummen (`.sha256`) werden erst danach berechnet, passen also zu den signierten Dateien.
+
+### Einschränkung: Deinstallationsprogramm
+Das Deinstallationsprogramm (`unins000.exe`) erzeugt Inno Setup selbst; es ist damit **nicht** signiert. Unter Smart App Control kann daher das Deinstallieren blockiert werden. Abhilfe wäre die Inno-Option `SignedUninstaller` mit einem Signierwerkzeug, das während des Kompilierens synchron signiert (z. B. ein lokales Zertifikat oder ein Signierdienst mit Kommandozeilen-Werkzeug).
+
+## Alternative: eigenes Zertifikat lokal
+Mit einem gekauften Code-Signing-Zertifikat kann `sign_windows.bat <Fingerprint>` eine heruntergeladene `dist\DocuBuilder.exe` signieren und die Prüfsumme neu erzeugen. Signierte Dateien danach im Release ersetzen, z. B.:
+```
+gh release upload v1.1.0.0 dist\DocuBuilder.exe dist\DocuBuilder.exe.sha256 --clobber
+```
+Das Setup muss in diesem Fall ebenfalls signiert und ersetzt werden (mit der bereits signierten `DocuBuilder.exe` neu bauen, dann signieren).
 
 ## Signatur prüfen
-Rechtsklick auf die .exe → Eigenschaften → Digitale Signaturen. Zusätzlich liegt jedem Release eine `.sha256`-Prüfsumme bei:
+Rechtsklick auf die .exe → Eigenschaften → Digitale Signaturen, oder in PowerShell:
 ```
-certutil -hashfile DocuBuilder.exe SHA256
+Get-AuthenticodeSignature .\DocuBuilder-Setup-1.0.1.4.exe
 ```
-Der Wert muss mit dem Inhalt der `.sha256`-Datei übereinstimmen.
+Zusätzlich liegt jedem Release eine `.sha256`-Prüfsumme bei (`certutil -hashfile <Datei> SHA256`).
 
 ## SmartScreen und Reputation
-Auch eine gültige Signatur verhindert die SmartScreen-Meldung bei neuen Dateien nicht sofort. Die Reputation baut sich über Downloads auf. Hilfreich ist:
-- immer mit demselben Zertifikat signieren
-- den Dateinamen `DocuBuilder.exe` stabil halten (keine Version im Dateinamen)
-- nicht unnötig oft neu bauen und veröffentlichen, denn jede neue Datei hat einen neuen Hash
-- die Datei über das Portal „Microsoft Security Intelligence" (Submit a file) einreichen
-- Nutzern im Release-Text den Hinweis „Weitere Informationen → Trotzdem ausführen" geben (siehe README)
-
-## Optional: SignPath
-Die Pipeline (`.github/workflows/build.yml`) kann alternativ über SignPath signieren, sobald die Repository-Variable `SIGNPATH_ORGANIZATION_ID` gesetzt ist. Wird SignPath Foundation genutzt, muss hier und im README der Hinweis ergänzt werden:
-„Free code signing provided by SignPath.io, certificate by SignPath Foundation."
+Auch eine gültige Signatur verhindert die SmartScreen-Meldung bei neuen Dateien nicht sofort; die Reputation baut sich über Downloads auf. Hilfreich ist, immer mit demselben Zertifikat zu signieren. Smart App Control dagegen lässt Programme mit gültiger Signatur einer anerkannten Stelle zu.
 
 ## Datenschutz
-Dieses Programm überträgt keine Daten an andere Systeme im Netzwerk, außer der Nutzer hat dies ausdrücklich veranlasst (z. B. durch das Öffnen eines hinterlegten Web-Links).
+Dieses Programm überträgt keine Daten an andere Systeme im Netzwerk, außer der Nutzer hat dies ausdrücklich veranlasst (z. B. durch das Öffnen eines hinterlegten Web-Links oder die Update-Suche).
