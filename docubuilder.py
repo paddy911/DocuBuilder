@@ -562,8 +562,10 @@ def program_pid():
     """Prozess, der beendet sein muss, bevor die Programmdatei ersetzt werden kann. Bei einer
     einzelnen PyInstaller-.exe ist das der Startprozess (Elternprozess dieses Python-Prozesses)."""
     mei = getattr(sys, "_MEIPASS", None)
-    if getattr(sys, "frozen", False) and mei and \
-            os.path.normcase(mei) != os.path.normcase(os.path.dirname(sys.executable)):
+    exe_dir = os.path.normcase(os.path.dirname(sys.executable))
+    # Einzeldatei: _MEIPASS ist ein Temp-Ordner. Programmordner (--onedir): _MEIPASS liegt im
+    # Programmordner (_internal), es gibt keinen Startprozess.
+    if getattr(sys, "frozen", False) and mei and not os.path.normcase(mei).startswith(exe_dir):
         return os.getppid()
     return os.getpid()
 

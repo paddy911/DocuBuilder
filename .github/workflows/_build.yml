@@ -31,15 +31,21 @@ jobs:
       - name: Version setzen
         run: python tools/version.py set ${{ inputs.version }} --channel ${{ inputs.channel }}
       - run: python -m pip install pyinstaller
+      # Programmordner (für das Setup; keine sich selbst entpackende Datei → weniger Fehlalarme)
+      # und portable Einzeldatei
       - name: Bauen
-        run: python -m PyInstaller --onefile --windowed --name DocuBuilder --version-file version_info.txt --icon assets/docubuilder.ico --add-data "assets/docubuilder.ico:assets" --add-data "assets/docubuilder.png:assets" docubuilder.py
+        run: |
+          python -m PyInstaller --noconfirm --onedir --windowed --name DocuBuilder --workpath build/onedir --version-file version_info.txt --icon assets/docubuilder.ico --add-data "assets/docubuilder.ico:assets" --add-data "assets/docubuilder.png:assets" docubuilder.py
+          python -m PyInstaller --noconfirm --onefile --windowed --name DocuBuilder --workpath build/onefile --version-file version_info.txt --icon assets/docubuilder.ico --add-data "assets/docubuilder.ico:assets" --add-data "assets/docubuilder.png:assets" docubuilder.py
 
-      - name: Unsignierte Datei hochladen
+      - name: Unsignierte Dateien hochladen
         id: unsigned
         uses: actions/upload-artifact@v4
         with:
           name: unsigned-windows
-          path: dist/DocuBuilder.exe
+          path: |
+            dist/DocuBuilder.exe
+            dist/DocuBuilder/DocuBuilder.exe
 
       # Signieren nur, wenn SignPath eingerichtet ist (Repository-Variable SIGNPATH_ORGANIZATION_ID gesetzt)
       - name: Mit SignPath signieren
@@ -56,16 +62,19 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: signed
 
-      - name: Signierte Datei übernehmen und prüfen
+      - name: Signierte Dateien übernehmen und prüfen
         if: ${{ steps.sign.outcome == 'success' }}
         shell: pwsh
         run: |
           $zip = Get-ChildItem signed -Filter *.zip -ErrorAction SilentlyContinue
           if ($zip) { Expand-Archive $zip.FullName -DestinationPath signed -Force }
           Copy-Item signed\DocuBuilder.exe dist\DocuBuilder.exe -Force
-          $sig = Get-AuthenticodeSignature dist\DocuBuilder.exe
-          Write-Host "Signaturstatus: $($sig.Status)"
-          if ($sig.Status -ne 'Valid') { throw "Signatur ungültig: $($sig.Status)" }
+          Copy-Item signed\DocuBuilder\DocuBuilder.exe dist\DocuBuilder\DocuBuilder.exe -Force
+          foreach ($f in "dist\DocuBuilder.exe", "dist\DocuBuilder\DocuBuilder.exe") {
+            $sig = Get-AuthenticodeSignature $f
+            Write-Host "Signaturstatus ${f}: $($sig.Status)"
+            if ($sig.Status -ne 'Valid') { throw "Signatur ungültig: $f ($($sig.Status))" }
+          }
 
       - name: Installationsprogramm bauen
         shell: pwsh

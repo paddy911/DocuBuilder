@@ -1,6 +1,7 @@
 ﻿; Installationsprogramm für DocuBuilder (Inno Setup 6)
 ; Bauen: build_installer.bat  (oder: ISCC.exe /DAppVersion=1.0.0.0 installer\DocuBuilder.iss)
-; Erwartet dist\DocuBuilder.exe (PyInstaller) und erzeugt dist\DocuBuilder-Setup-<Version>.exe.
+; Erwartet den Programmordner dist\DocuBuilder\ (PyInstaller --onedir) und erzeugt
+; dist\DocuBuilder-Setup-<Version>.exe.
 
 #ifndef AppVersion
   #define AppVersion "1.0.0.0"
@@ -36,6 +37,11 @@ SetupIconFile=..\assets\docubuilder.ico
 UninstallDisplayIcon={app}\DocuBuilder.exe
 UninstallDisplayName={#VerName}
 CloseApplications=yes
+#ifdef Signed
+; Setup und Deinstallationsprogramm signieren (build_installer.bat übergibt /Sdocusign=...)
+SignTool=docusign $f
+SignedUninstaller=yes
+#endif
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -47,7 +53,8 @@ Name: "german"; MessagesFile: "compiler:Languages\German.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\dist\DocuBuilder.exe"; DestDir: "{app}"; Flags: ignoreversion
+; Programmordner (PyInstaller --onedir): DocuBuilder.exe und _internal\
+Source: "..\dist\DocuBuilder\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 

@@ -80,7 +80,7 @@ Alternativ gibt es weiterhin die einzelne `DocuBuilder.exe` ohne Installation.
 - Optional: *Einstellungen → Allgemein → „Beim Anmelden nach Updates suchen“* (standardmäßig aus) meldet sich nur, wenn es ein Update gibt.
 
 ## Selbst bauen
-- Windows-Installationsprogramm: `build_installer.bat` doppelklicken (benötigt Inno Setup 6: `winget install JRSoftware.InnoSetup`), Ergebnis `dist\DocuBuilder-Setup-<Version>.exe`
+- Windows-Installationsprogramm: `build_installer.bat` doppelklicken (benötigt Inno Setup 6: `winget install JRSoftware.InnoSetup`), Ergebnis `dist\DocuBuilder-Setup-<Version>.exe` und die portable `dist\DocuBuilder.exe`, jeweils mit Prüfsumme. Mit gesetztem `DOCUBUILDER_CERT_SHA1` wird alles signiert (siehe [CODE_SIGNING.md](CODE_SIGNING.md)).
 - Windows: `build_windows.bat` doppelklicken, Ergebnis in `dist\`
 - Icon: Vorlagen sind `assets/docubuilder.svg` (groß) und `assets/docubuilder-small.svg` (bis 32 px). Nach Änderungen `python tools/make_icons.py` ausführen (benötigt `pip install resvg-py pillow`); das erzeugt `assets/docubuilder.ico` und `assets/docubuilder.png`, die im Repo liegen.
 - Windows signieren: `sign_windows.bat <Fingerprint>` (siehe CODE_SIGNING.md)
