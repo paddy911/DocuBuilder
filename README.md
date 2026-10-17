@@ -72,8 +72,10 @@ Alternativ gibt es weiterhin die einzelne `DocuBuilder.exe` ohne Installation.
 ## Updates
 **Menü → Nach Updates suchen …** (oder *Einstellungen → Allgemein → Jetzt nach Updates suchen*) fragt die Releases auf GitHub ab:
 - Eine **Stable**-Version sucht nur Stable-Releases, eine **Nightly**-Version zusätzlich die Vorabversionen.
-- Gibt es eine neuere Version, zeigt das Fenster die Änderungen. **Jetzt aktualisieren** (nur für den **Admin**) lädt das Update herunter, prüft die SHA-256-Prüfsumme und installiert es:
-  - **Installierte Version:** Das Setup läuft ohne Rückfragen; Windows fragt nach Administratorrechten. Danach startet DocuBuilder neu. Einträge und Benutzer bleiben erhalten.
+- Gibt es eine neuere Version, zeigt das Fenster die Änderungen. Das Update läuft in zwei Schritten (nur für den **Admin**):
+  1. **Herunterladen:** lädt das Update und prüft die SHA-256-Prüfsumme. DocuBuilder kann dabei weiter benutzt werden.
+  2. **DocuBuilder schließen und installieren:** Nach einer Rückfrage wird DocuBuilder geschlossen; erst dann wird installiert. Mit **Später** bleibt das Update bereit – beim Beenden von DocuBuilder wird noch einmal gefragt, ob es jetzt installiert werden soll.
+  - **Installierte Version:** Das Setup wartet, bis DocuBuilder beendet ist, und läuft dann ohne Rückfragen; Windows fragt nach Administratorrechten. Danach startet DocuBuilder neu. Einträge und Benutzer bleiben erhalten.
   - **Einzelne `DocuBuilder.exe`:** Die Datei wird ausgetauscht und neu gestartet. Dafür braucht DocuBuilder Schreibrechte im eigenen Ordner.
 - Optional: *Einstellungen → Allgemein → „Beim Anmelden nach Updates suchen“* (standardmäßig aus) meldet sich nur, wenn es ein Update gibt.
 

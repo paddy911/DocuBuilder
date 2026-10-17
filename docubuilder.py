@@ -558,10 +558,35 @@ def clean_child_env():
             del os.environ[key]
 
 
+def program_pid():
+    """Prozess, der beendet sein muss, bevor die Programmdatei ersetzt werden kann. Bei einer
+    einzelnen PyInstaller-.exe ist das der Startprozess (Elternprozess dieses Python-Prozesses)."""
+    mei = getattr(sys, "_MEIPASS", None)
+    if getattr(sys, "frozen", False) and mei and \
+            os.path.normcase(mei) != os.path.normcase(os.path.dirname(sys.executable)):
+        return os.getppid()
+    return os.getpid()
+
+
 def start_setup(path):
     """Installationsprogramm ohne Rückfragen starten; Windows fragt nach Adminrechten (UAC).
-    /UPDATE=1 lässt das Setup DocuBuilder danach wieder starten (siehe installer/DocuBuilder.iss)."""
-    os.startfile(path, "open", "/SILENT /SP- /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /UPDATE=1")
+    /WAITPID: das Setup wartet, bis dieses DocuBuilder beendet ist, bevor es Dateien ersetzt.
+    /UPDATE=1: das Setup startet DocuBuilder danach wieder (siehe installer/DocuBuilder.iss)."""
+    os.startfile(path, "open", "/SILENT /SP- /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS "
+                               f"/UPDATE=1 /WAITPID={program_pid()}")
+
+
+def install_error_text(e):
+    code = getattr(e, "winerror", None)
+    if code == 1223:
+        return "Die Administratorrechte wurden nicht erteilt. Das Update wurde nicht installiert."
+    if code == 4551:                                 # Smart App Control / Anwendungssteuerung
+        return ("Windows hat das Update blockiert (Smart App Control bzw. eine "
+                "Anwendungssteuerungsrichtlinie), weil die Datei nicht digital signiert ist.\n\n"
+                "Bis DocuBuilder signiert ausgeliefert wird, lässt sich das Update nur installieren, "
+                "wenn Smart App Control ausgeschaltet ist (Windows-Sicherheit → App- & "
+                "Browsersteuerung). Das ist eine Sicherheitsentscheidung – im Zweifel bitte die IT fragen.")
+    return f"Das Update konnte nicht installiert werden:\n{e}"
 
 
 def replace_program(exe, new_file):
@@ -1313,7 +1338,11 @@ class UpdateDialog(tk.Toplevel):
         self.minsize(520, 200)                   # Größe richtet sich nach dem Inhalt
         self.configure(bg=p["bg"])
         self.transient(app)
-        self.grab_set()
+        # Nur modal, wenn es aus den (modalen) Einstellungen kommt; sonst kann man während des
+        # Downloads im Hauptfenster weiterarbeiten.
+        self.modal = app._alive(app.settings_win)
+        if self.modal:
+            self.grab_set()
         set_dark_titlebar(self, app.is_dark)
         self.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -1335,7 +1364,10 @@ class UpdateDialog(tk.Toplevel):
         self.bar.grid_remove()
         self.btns = ttk.Frame(f)
         self.btns.grid(row=4, column=0, sticky="e", pady=(14, 0))
-        if found:
+        pending = app.pending_update
+        if pending and os.path.exists(pending["path"]):
+            self.show_ready()                    # schon heruntergeladen: nur noch installieren
+        elif found:
             self.show_update(found)
         else:
             self.check()
@@ -1406,12 +1438,9 @@ class UpdateDialog(tk.Toplevel):
                          "Release-Seite holen.")
         elif not is_admin_user:
             lines.append(f"Installieren darf nur der {ADMIN_NAME}.")
-        elif mode == "setup":
-            lines.append("Das Update wird heruntergeladen, geprüft und installiert. Windows fragt dabei "
-                         "nach Administratorrechten. DocuBuilder startet danach neu.")
         else:
-            lines.append("Die Programmdatei wird heruntergeladen, geprüft und ersetzt. DocuBuilder "
-                         "startet danach neu.")
+            lines.append("Das Update wird zuerst heruntergeladen und geprüft. Zum Installieren muss "
+                         "DocuBuilder danach geschlossen werden.")
         self.head.configure(text=f"Version {v} ist verfügbar")
         self.info.configure(text="\n\n".join(lines))
         if found["notes"]:
@@ -1423,10 +1452,10 @@ class UpdateDialog(tk.Toplevel):
         buttons = [("Release-Seite", lambda: webbrowser.open(found["page"]), False),
                    ("Später", self.close, False)]
         if mode != "source" and is_admin_user:
-            buttons.append(("Jetzt aktualisieren", self.install, True))
+            buttons.append(("Herunterladen", self.download, True))
         self.set_buttons(*buttons)
 
-    def install(self):
+    def download(self):
         mode = install_mode()
         name = update_asset(self.found, mode)
         self.head.configure(text="Update wird heruntergeladen")
@@ -1457,42 +1486,48 @@ class UpdateDialog(tk.Toplevel):
     def downloaded(self, path, error, mode):
         if error:
             self.bar.grid_remove()
-            self.head.configure(text="Update fehlgeschlagen")
+            self.head.configure(text="Download fehlgeschlagen")
             self.info.configure(text=str(error))
-            self.set_buttons(("Erneut versuchen", self.install, False), ("Schließen", self.close, True))
+            self.set_buttons(("Erneut versuchen", self.download, False), ("Schließen", self.close, True))
             return
-        self.bar.configure(value=100)
-        self.info.configure(text="Prüfsumme korrekt. Update wird installiert …")
-        self.update_idletasks()
+        self.app.pending_update = {"version": self.found["version"], "path": path, "mode": mode}
+        self.show_ready()
+
+    def show_ready(self):
+        """Heruntergeladen und geprüft: Installation erst nach dem Schließen von DocuBuilder."""
+        pending = self.app.pending_update
+        v = fmt_version(pending["version"])
+        self.bar.grid_remove()
+        self.notes.grid_remove()
+        self.head.configure(text=f"Update {v} ist bereit")
+        uac = " Windows fragt dabei nach Administratorrechten." if pending["mode"] == "setup" else ""
+        self.info.configure(text=(
+            "Das Update wurde heruntergeladen, die Prüfsumme ist korrekt.\n\n"
+            f"Zum Installieren muss DocuBuilder geschlossen werden.{uac} Danach startet DocuBuilder "
+            "automatisch neu.\n\n"
+            "Du kannst auch später installieren – beim Beenden von DocuBuilder wirst du noch einmal "
+            "gefragt."))
+        self.set_buttons(("Später", self.close, False),
+                         ("DocuBuilder schließen und installieren", self.install_now, True))
+
+    def install_now(self):
+        v = fmt_version(self.app.pending_update["version"])
+        if not messagebox.askokcancel(
+                "Update installieren",
+                f"DocuBuilder wird jetzt geschlossen, damit Version {v} installiert werden kann.\n\n"
+                "Bitte vorher offene Eingaben abschließen. DocuBuilder startet nach dem Update "
+                "automatisch neu.", icon="warning", parent=self):
+            return
         try:
-            clean_child_env()
-            if mode == "setup":
-                start_setup(path)
-            else:
-                replace_program(sys.executable, path)
-                subprocess.Popen([sys.executable])
+            self.app.install_update()
         except OSError as e:
-            self.bar.grid_remove()
             self.head.configure(text="Update nicht installiert")
-            code = getattr(e, "winerror", None)
-            if code == 1223:
-                text = "Die Administratorrechte wurden nicht erteilt."
-            elif code == 4551:                    # Smart App Control / Anwendungssteuerung
-                text = ("Windows hat das Update blockiert (Smart App Control bzw. eine "
-                        "Anwendungssteuerungsrichtlinie), weil die Datei nicht digital signiert ist.\n\n"
-                        "Bis DocuBuilder signiert ausgeliefert wird, lässt sich das Update nur "
-                        "installieren, wenn Smart App Control ausgeschaltet ist (Windows-Sicherheit → "
-                        "App- & Browsersteuerung). Das ist eine Sicherheitsentscheidung – im "
-                        "Zweifel bitte die IT fragen.")
-            else:
-                text = f"Das Update konnte nicht installiert werden:\n{e}"
-            self.info.configure(text=text)
-            self.set_buttons(("Erneut versuchen", self.install, False), ("Schließen", self.close, True))
-            return
-        self.app.destroy()                        # Platz machen für die neue Version
+            self.info.configure(text=install_error_text(e))
+            self.set_buttons(("Erneut versuchen", self.install_now, False), ("Schließen", self.close, True))
 
     def close(self):
-        self.grab_release()
+        if self.modal:
+            self.grab_release()
         self.destroy()
         if self.app._alive(self.app.settings_win):
             self.app.settings_win.grab_set()     # Einstellungen waren vorher modal
@@ -1522,6 +1557,8 @@ class App(tk.Tk):
         self.default_win = None
         self.update_win = None
         self.info_win = None
+        self.pending_update = None               # heruntergeladenes, geprüftes Update (wartet aufs Schließen)
+        self.protocol("WM_DELETE_WINDOW", self.quit_app)
         self._update_checked = False            # automatische Suche nur einmal je Programmstart
         self.ui_font = tkfont.nametofont("TkDefaultFont").actual("family")
         self.pal = PALETTES["light"]
@@ -1673,7 +1710,7 @@ class App(tk.Tk):
             None,
             ("Info zu DocuBuilder", self.open_info),
             None,
-            ("Beenden", self.destroy),
+            ("Beenden", self.quit_app),
         ]
 
     def show_menu(self):
@@ -1693,6 +1730,39 @@ class App(tk.Tk):
             menu.tk_popup(max(x, 0), b.winfo_rooty() + b.winfo_height())
         finally:
             menu.grab_release()
+
+    # ---- Update installieren / Beenden
+    def install_update(self):
+        """Heruntergeladenes Update installieren. DocuBuilder wird dafür beendet; das Setup wartet,
+        bis der Prozess weg ist. Wirft OSError, wenn Windows den Start verweigert."""
+        pending = self.pending_update
+        clean_child_env()
+        if pending["mode"] == "setup":
+            start_setup(pending["path"])
+        else:
+            replace_program(sys.executable, pending["path"])
+            subprocess.Popen([sys.executable])
+        self.pending_update = None
+        self.destroy()
+
+    def quit_app(self):
+        """Beenden; liegt ein heruntergeladenes Update bereit, wird angeboten, es jetzt zu installieren."""
+        pending = self.pending_update
+        if pending and os.path.exists(pending["path"]):
+            answer = messagebox.askyesnocancel(
+                APP_NAME, f"Das Update auf Version {fmt_version(pending['version'])} ist heruntergeladen "
+                          "und bereit.\n\nJetzt installieren? DocuBuilder wird dafür geschlossen und "
+                          "startet danach neu.\n\nJa = installieren · Nein = ohne Update beenden",
+                parent=self)
+            if answer is None:
+                return
+            if answer:
+                try:
+                    self.install_update()
+                except OSError as e:
+                    messagebox.showerror(APP_NAME, install_error_text(e), parent=self)
+                return
+        self.destroy()
 
     # ---- Fenster
     def open_update(self, found=None):

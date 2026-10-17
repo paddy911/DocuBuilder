@@ -69,6 +69,32 @@ Filename: "{win}\explorer.exe"; Parameters: """{app}\DocuBuilder.exe"""; Flags: 
 [Code]
 function SetEnvironmentVariableW(lpName: String; lpValue: Cardinal): Integer;
   external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+function OpenProcess(dwDesiredAccess: Cardinal; bInheritHandle: Integer; dwProcessId: Cardinal): Cardinal;
+  external 'OpenProcess@kernel32.dll stdcall';
+function WaitForSingleObject(hHandle: Cardinal; dwMilliseconds: Cardinal): Cardinal;
+  external 'WaitForSingleObject@kernel32.dll stdcall';
+function CloseHandle(hObject: Cardinal): Integer;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+const
+  SYNCHRONIZE = $00100000;
+
+{ Update aus DocuBuilder: /WAITPID=<Prozess-ID> – erst weitermachen, wenn das alte DocuBuilder
+  beendet ist (höchstens 60 Sekunden; danach greift CloseApplications). }
+procedure WaitForOldProgram;
+var
+  Pid, Handle: Cardinal;
+begin
+  Pid := StrToIntDef(ExpandConstant('{param:WAITPID|0}'), 0);
+  if Pid = 0 then
+    Exit;
+  Handle := OpenProcess(SYNCHRONIZE, 0, Pid);
+  if Handle <> 0 then
+  begin
+    WaitForSingleObject(Handle, 60000);
+    CloseHandle(Handle);
+  end;
+end;
 
 function IsUpdate: Boolean;
 begin
@@ -96,6 +122,7 @@ end;
 function InitializeSetup: Boolean;
 begin
   RemoveInheritedPyInstallerEnv;
+  WaitForOldProgram;
   Result := True;
 end;
 
